@@ -26,11 +26,11 @@ The final result is clearly shown to the user with distunguishable formatting an
 
 We use Pydantic AI for agent orchestration. We use OpenRouter as LLM provider, in order to switch easily between different families of models. The base model for each agent is provided as an env variable for easy configuration.
 
-- **Agent 1 - PROPOSER:** Interprets the request and proposes scope and assumptions.
+- **Agent 1 - PROPOSER:** Interprets the request and proposes scope and assumptions. Keeps note of the decision log.
 - **Agent 2 - CRITIC:** Challenges assumptions, probes gaps, signals competion.
 - **Agent 3 - SUMMARIZER:** Collects all information from the provided input and full conversation between the PROPOSER and CRITIC agents.
 
-All agents have shared access to a **scratchpad** - a text file that each agent can read and write to. This file is used to keep the current state of the scope, assumptions, open questions, clarifications, challenges, etc. For example, if a scope item has been wrongly included and successfully challenged, it should be promptly removed from the scratchpad. Likewise, when a challenge is adressed succesfully, the chalenge is no longer needed in the scratchpad and should also be removed. By the end, the CRITIC should be able to decide if the process is complete, when it is satisfied with the contents of the scratchpad. Each agent who writes to the scratchpad has the responsibility to keep its contents within the prescribed limits.
+All agents have shared access to a **scratchpad** - a text file that each agent can read and write to. This file is used to keep the current state of the scope, assumptions, key decisions, open questions, clarifications, challenges, etc. For example, if a scope item has been wrongly included and successfully challenged, it should be promptly removed from the scratchpad. Likewise, when a challenge is adressed succesfully, the chalenge is no longer needed in the scratchpad and should also be removed. By the end, the CRITIC should be able to decide if the process is complete, when it is satisfied with the contents of the scratchpad. Each agent who writes to the scratchpad has the responsibility to keep its contents within the prescribed limits.
 
 The context of the **PROPOSER** and **CRITIC** agents contains the following information:
 
@@ -50,8 +50,8 @@ The context of the **SUMMARIZER** agent contains the following information:
 The deliberation engine process flow consists of the following steps:
 
 1. Obtain system description and feature request as free text from the user (if not already provided).
-2. The PROPOSER agent produces the first draft of the scope, assumptions, and open questions based on the provided input and presents them to the chat.
-3. The CRITIC reviews the PROPOSER's outputs, challenges its assumptions, searches for gaps, and asks for clarifications. This is done by adding notes to the scratchpad and writing in the chat. The CRITIC can also add open questions to the scratchpad.
+2. The PROPOSER agent produces the first draft of the scope, assumptions, key decisions, and open questions based on the provided input and presents them to the chat.
+3. The CRITIC reviews the PROPOSER's outputs, challenges its scope, assumptions, decisions, and open questions, searches for gaps, and asks for clarifications. This is done by adding notes to the scratchpad and writing in the chat. The CRITIC does not edit the PROPOSER's items directly, but only comments on them.
 4. The conversation between the CRITIC and the PROPOSER (steps 2 and 3) continues until the CRITIC is satisfied with the state of the scratchpad or a fixed number of turns is reached. STOPPING CRITERIA:
 
     - **Scope Completeness:** The scope (in/out) clearly satisfies all aspects of the feature request, given the system description (i.e., no scope items are missing).
@@ -63,6 +63,7 @@ The deliberation engine process flow consists of the following steps:
     - **Open Question Completeness:** Each identified key decision that requires external input is covered by a specific open question.
     - **Open Question Soundness:** No noted open question can be answered by the provided context. Each open question can only be decided by external information that is currently missing.
     - **Open Question Quality:** All open questions are concrete and well defined. No tautology. A human can understand clearly what additional information or decision needs to be provided.
+    - **Decision Log Alignment:** The CRITIC agrees with each key decision in the decision log - verifying what was agreed and rejected.
     - **Challenge Coverage:** All CRITIC challenges, identified gaps, and clarification requests have been addressed by the PROPOSER.
     - **Max Turns:** The conversation does not exceed **30** PROPOSER-CRITIC conversation turns. If the limit is reached, the conversation finishes with a clear WARNING "Limit of 30 Conversation Turns Reached". This is a hard condition, enforced by deterministic logic.
 
@@ -71,6 +72,7 @@ The deliberation engine process flow consists of the following steps:
     - **Overview:** short executive summary of the deliberation conclusion
     - **Scope:** what the feature will and will not include
     - **Assumptions:** what was assumed and whether it was challenged or accepted
+    - **Decision Log:** each key decision made by the agents - what was agreed and what was rejected
     - **Open Questions:** what remains unresolved and requires human input
 
 ### Technical Details
