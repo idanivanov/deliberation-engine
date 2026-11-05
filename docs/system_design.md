@@ -128,4 +128,4 @@ The deliberation engine process flow consists of the following steps:
 - Each session produces a set of files:
   - Final decision document (`.md`, `.json`)
   - Scrarchpad varsion history (`scratchpad/scratchpad_vXXX_agent_YYYY.txt`, where `XXX` is the consecutive version number - 001, 002, etc. - and Y is the agent name - `PROPOSER`, `CRITIC`)
-  - Full conversation history (`chat.json`)
+  - Full conversation history (`chat.json`) including internal agent steps and answers.
