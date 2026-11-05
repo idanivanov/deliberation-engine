@@ -1,0 +1,38 @@
+[project]
+name = "deliberation-engine"
+version = "0.1.0"
+description = "Multi-agent AI system for delibrating feature requests"
+readme = "README.md"
+authors = [
+    { name = "Ivan Danielov Ivanov", email = "3141608+idanivanov@users.noreply.github.com" }
+]
+requires-python = ">=3.15"
+dependencies = [
+    "pydantic>=2.14",
+    "pydantic-ai-slim[openrouter]>=2.55.0",
+    "pydantic-settings>=2.15.0",
+    "ruff>=0.16.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C90", "PLR0911", "PLR0912", "PLR0915", "PLR0917"]
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.importlinter]
+root_package = "deliberation_engine"
+include_external_packages = true
