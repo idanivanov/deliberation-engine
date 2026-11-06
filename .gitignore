@@ -221,3 +221,6 @@ __marimo__/
 
 data/
 .DS_Store
+
+# Deliberation runs
+runs/

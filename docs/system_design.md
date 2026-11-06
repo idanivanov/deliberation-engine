@@ -46,7 +46,7 @@ For simplicity, the conversation history is the only state shared between the PR
 
 - Each agent keeps its own Pydantic AI message history: its own replies are assistant messages, and the other agent's latest reply is passed as the next user prompt. The history returned by each run is passed back as `message_history` to the agent's next run.
 - The feature request and system description are part of each agent's instructions, so they are always in context.
-- The other agent's output is passed as JSON text, so item and challenge IDs are unambiguous. Each user prompt also states the current round and the round limits.
+- The other agent's output is passed as JSON text, so item and challenge IDs are unambiguous. Its confidence score is left out, so each agent scores independently instead of anchoring on the other's score. Each user prompt also states the current round and the round limits.
 - The history is not compacted. It is bounded by the round limit and the response token cap: typical runs finish in 3–6 rounds with messages of 2–4k tokens, so the history stays well under 50k tokens, and only the practically unreachable worst case at the caps (24 messages × 8k tokens, plus instructions and retried attempts) could exceed a 200k context window. If a smaller-context model is ever needed, a Pydantic AI history processor that keeps only the last two rounds is a few-line fallback: since the PROPOSER restates its full proposal and the CRITIC re-raises every unresolved challenge each turn, nothing older is required.
 - The orchestrator separately records the full conversation, including retries, in `chat.json`.
 

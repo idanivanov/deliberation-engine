@@ -11,8 +11,13 @@ dependencies = [
     "pydantic>=2.14",
     "pydantic-ai-slim[openrouter]>=2.55.0",
     "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.4",
+    "rich>=15.0.0",
     "ruff>=0.16.10",
 ]
+
+[project.scripts]
+deliberation-engine = "deliberation_engine.cli:main"
 
 [tool.ruff]
 line-length = 100
@@ -33,6 +38,35 @@ dev = [
     "pytest-asyncio>=1.4.0",
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
 [tool.importlinter]
 root_package = "deliberation_engine"
 include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: CLI -> orchestrator -> agents, document -> schemas, config -> prompts"
+type = "layers"
+layers = [
+    "deliberation_engine.cli",
+    "deliberation_engine.orchestrator",
+    "deliberation_engine.agents | deliberation_engine.document",
+    "deliberation_engine.schemas | deliberation_engine.config",
+    "deliberation_engine.prompts",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the CLI renders to the terminal"
+type = "forbidden"
+source_modules = [
+    "deliberation_engine.orchestrator",
+    "deliberation_engine.agents",
+    "deliberation_engine.document",
+    "deliberation_engine.schemas",
+    "deliberation_engine.config",
+    "deliberation_engine.prompts",
+]
+forbidden_modules = ["rich"]
