@@ -10,6 +10,8 @@ The alternative would have been to write the code myself. I decided not to do th
 
 We choose Pydantic AI as a modern and well maintained agentic framework. It integrates well with Pydantic for structured outputs and OpenRouter for connecting to different model families. It also provides many common agentic patterns out-of-the-box, which reduces boilerplate code.
 
+LangChain/LangGraph, AutoGen, Semantic Kernel, CrewAI are all good alternatives, but considering the simplicity of the agents, the framework choice was mostly due to personal preference.
+
 ## State and Context Management
 
 The state of the system is the conversation history between the PROPOSER and the CRITIC agents. The chat contains all information that is used for finally producing the decision document. This approach is simple to implement, but has significant drawbacks:
