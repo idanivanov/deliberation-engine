@@ -1,5 +1,9 @@
 # Deliberation Engine System Design Document
 
+## Background & Problem Statement
+
+TODO
+
 ## Requirements & Scope
 
 - The user can clearly follow and inspect the agent communication.
@@ -15,6 +19,8 @@
 - Graphical user interface, beyond the simple CLI.
 
 ## Assumptions
+
+- This is a general purpose (not domain specialized) deliberation engine, capable of working on any system and feature request, that can be described in free text within reasonable string limits.
 
 ## Architecture
 
