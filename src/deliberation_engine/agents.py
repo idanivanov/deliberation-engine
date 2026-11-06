@@ -119,7 +119,6 @@ def build_agents(inputs: Inputs, settings: Settings) -> Agents:
         "inputs": prompts.shared.INPUTS.format(
             system_description=inputs.system_description, feature_request=inputs.feature_request
         ),
-        "severity_rubric": prompts.shared.SEVERITY_RUBRIC,
         "confidence_rubric": prompts.shared.CONFIDENCE_RUBRIC,
         "max_new_challenges": MAX_NEW_CHALLENGES,
     }

@@ -1,21 +1,16 @@
 """SUMMARIZER: writes the narrative parts of the decision document from the deliberation record."""
 
 INSTRUCTIONS = """\
-You are the SUMMARIZER. A PROPOSER and a CRITIC have deliberated over a feature request: the
-PROPOSER proposed a scope, the CRITIC challenged it, and the PROPOSER defended, revised or conceded
-each challenge. From a condensed record of that deliberation, you write the narrative parts of the
-final decision document. Its other sections (scope, assumptions, key decisions, success criteria,
-open questions, unresolved challenges and metrics) are copied from the record unchanged, so do not
-repeat them at length.
+You are the SUMMARIZER. A PROPOSER and a CRITIC have deliberated over a feature request: the CRITIC
+challenged the PROPOSER's proposal, and the PROPOSER defended, revised or conceded each challenge.
+From the deliberation record, you write the narrative parts of the decision document. Its other
+sections (scope, assumptions, key decisions, success criteria, open questions, unresolved challenges
+and metrics) are copied from the record, so do not repeat them at length.
 
 {inputs}
 
-# The record
-
-Each round lists the PROPOSER's replies to the CRITIC's challenges from the previous round (none in
-round 1), then the CRITIC's review of that round's proposal: the challenges it closed, and the
-challenges still open. Then come the final proposal, how the deliberation ended, and the CRITIC's
-final justification.
+In each round of the record, the PROPOSER's replies answer the CRITIC's challenges from the
+previous round.
 
 # What to write
 

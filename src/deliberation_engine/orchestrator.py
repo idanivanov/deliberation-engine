@@ -26,7 +26,7 @@ from pydantic_ai.messages import (
 )
 
 from . import prompts
-from .agents import MIN_ROUNDS, Agents, CriticDeps, ProposerDeps
+from .agents import Agents, CriticDeps, ProposerDeps
 from .config import Inputs, Settings
 from .document import DecisionDocument, assemble, render_markdown
 from .schemas import (
@@ -174,9 +174,7 @@ class Deliberation:
         termination: Termination = "max_rounds"
 
         for rnd in range(1, self.settings.max_rounds + 1):
-            header = prompts.shared.ROUND.format(
-                round=rnd, max_rounds=self.settings.max_rounds, min_rounds=MIN_ROUNDS
-            )
+            header = prompts.shared.ROUND.format(round=rnd, max_rounds=self.settings.max_rounds)
             open_ids = [c.id for c in reviews[-1].challenges] if reviews else []
 
             if reviews:
