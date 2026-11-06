@@ -18,7 +18,7 @@
 - Persistence beyond the session's output files (no database), API server, or multi-user support.
 - Agent tools or retrieval: the agents only see the provided system description and feature request.
 - Human input during the deliberation: open questions are collected in the decision document instead.
-- Input sanitization beyond a length cap: the inputs are trusted plain text.
+- Input sanitization beyond a length cap and control-character stripping: the inputs are trusted plain text.
 
 ## Assumptions
 
@@ -26,7 +26,7 @@
 
 ## Architecture
 
-All code is contained in a single, flat Python package `deliberation_engine` with clearly separated concerns. The orchestrator reports progress through a plain `on_event` callback that the CLI renders, so the deliberation loop does not depend on the terminal output and can be tested on its own. All LLM calls are sequential; there is no parallelism anywhere.
+All code is contained in a single Python package `deliberation_engine`, with clearly separated concerns. The orchestrator reports progress through a plain `on_event` callback that the CLI renders, so the deliberation loop does not depend on the terminal output and can be tested on its own. All LLM calls are sequential; there is no parallelism anywhere.
 
 ### Interface
 
@@ -47,7 +47,7 @@ For simplicity, the conversation history is the only state shared between the PR
 - Each agent keeps its own Pydantic AI message history: its own replies are assistant messages, and the other agent's latest reply is passed as the next user prompt. The history returned by each run is passed back as `message_history` to the agent's next run.
 - The feature request and system description are part of each agent's instructions, so they are always in context.
 - The other agent's output is passed as JSON text, so item and challenge IDs are unambiguous. Each user prompt also states the current round and the round limits.
-- The history is not compacted. It is bounded by the round limit and the response token cap: typical runs finish in 3–6 rounds with messages of 2–4k tokens, so the history stays well under 50k tokens, and even the theoretical worst case at the caps (24 messages × 8k tokens) fits in a 200k context window. If a smaller-context model is ever needed, a Pydantic AI history processor that keeps only the last two rounds is a few-line fallback: since the PROPOSER restates its full proposal and the CRITIC re-raises every unresolved challenge each turn, nothing older is required.
+- The history is not compacted. It is bounded by the round limit and the response token cap: typical runs finish in 3–6 rounds with messages of 2–4k tokens, so the history stays well under 50k tokens, and only the practically unreachable worst case at the caps (24 messages × 8k tokens, plus instructions and retried attempts) could exceed a 200k context window. If a smaller-context model is ever needed, a Pydantic AI history processor that keeps only the last two rounds is a few-line fallback: since the PROPOSER restates its full proposal and the CRITIC re-raises every unresolved challenge each turn, nothing older is required.
 - The orchestrator separately records the full conversation, including retries, in `chat.json`.
 
 #### Agent 1: PROPOSER
@@ -87,12 +87,12 @@ In a single LLM call, the CRITIC checks each section of the latest proposal (sco
 It also checks:
 
 - **Decision Log Alignment:** The CRITIC agrees with each key decision - verifying what was agreed and rejected.
-- **Challenge Coverage:** Each of the PROPOSER's replies actually addresses its challenge (the orchestrator guarantees that a reply exists). After a defense, the CRITIC either accepts it (resolving the challenge), escalates with a new concrete failure scenario, or asks for the point to become an open question. It does not repeat the same challenge.
+- **Challenge Coverage:** Each of the PROPOSER's replies actually addresses its challenge (the orchestrator guarantees that a reply exists). After a defense, the CRITIC either accepts it (resolving the challenge), escalates with a new concrete failure scenario, or asks for the point to become an open question. It does not re-raise a defended challenge unchanged; an escalation keeps the challenge's ID.
 
 The CRITIC returns a structured output containing:
 
 - **Challenges:** a list of significant, specific challenges. Each has a stable ID (e.g., C1), the ID of the proposal item it targets (or the section, for missing items), a severity (minor, major, blocking), the concrete risk or failure scenario, and a question or suggested resolution. Unresolved challenges are re-raised with the same ID. At most 5 new challenges are raised per round, most severe first.
-- **Resolved:** the IDs of previously open challenges closed in this round, each with how it closed: defense accepted, revision adequate, or converted to an open question.
+- **Resolved:** the IDs of previously open challenges closed in this round, each with how it closed: defense accepted, concession accepted, revision adequate, or converted to an open question.
 - **Satisfied:** an explicit boolean signal that the CRITIC is satisfied and ready to conclude, with a short justification.
 - **Confidence:** its confidence (0–100) in the current proposal, with a one-sentence rationale.
 
@@ -136,9 +136,9 @@ A **round** is one PROPOSER turn followed by one CRITIC review.
 3. The CRITIC reviews the latest proposal and returns its challenges, its resolved list, and its explicit satisfaction signal. Each CRITIC prompt states the current round and the minimum and maximum number of rounds.
 4. The PROPOSER replies to the challenges and restates the updated proposal. Steps 3 and 4 repeat until one of the stopping criteria is met. The criteria are checked after each CRITIC review, so the final proposal has always been reviewed:
 
-    - **Minimum 2 Rounds:** In round 1, the CRITIC must not signal satisfaction and must raise at least one major or blocking challenge. This is a hard rule, checked by deterministic logic in the CRITIC's output validator. If violated, the validator raises `ModelRetry` with an instruction stating exactly this. This is retried 3 times. If the CRITIC still violates the rule after the 3rd try, the process stops with an error.
+    - **Minimum 2 Rounds:** In round 1, the CRITIC must not signal satisfaction and must raise at least one major or blocking challenge. This is a hard rule, checked by deterministic logic in the CRITIC's output validator. If violated, the validator raises `ModelRetry` with an instruction stating exactly this. As with every output validator, up to 3 retries are allowed. If the CRITIC still violates the rule after the 3rd retry, the process stops with an error.
     - **Converged:** From the second round onward, the discussion is over as soon as the CRITIC explicitly signals satisfaction, i.e., no blocking or major challenges remain.
-    - **Stalled:** The lowest disagreement so far has not improved for **3** consecutive rounds, e.g., because the agents are deadlocked on the same challenges. The conversation finishes with a clear WARNING "Deliberation Stalled".
+    - **Stalled:** The lowest disagreement so far, counting only blocking and major challenges, has not improved for **3** consecutive rounds, e.g., because the agents are deadlocked on the same challenges. The conversation finishes with a clear WARNING "Deliberation Stalled".
     - **Max Rounds:** The conversation does not exceed **12** rounds. If the limit is reached, the conversation finishes with a clear WARNING "Limit of 12 Rounds Reached". This is a hard safety net, enforced by deterministic logic.
 
     Both stalled and max rounds thresholds are configurable via env variables. In all cases, except on error, the decision document is produced, including the termination reason (converged, stalled, or max rounds). On error, the run exits non-zero and `chat.json` is preserved.
