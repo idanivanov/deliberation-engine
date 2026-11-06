@@ -26,7 +26,7 @@ All code is contained in a single Python package `deliberation_engine`. The pack
 
 This is a CLI tool. The engine starts with `deliberation-engine start [-s/--system "<plain text description of the target system for the request>"] [-r/--request "<feature request in plain text>"]`. The deliberation process starts immediately if the system description and feature request are provided. Otherwise, the user is first prompted to provide the system description and feature request in plain text when the command is called. Those parameters can also be provided via env variables: `DE_SYSTEM_DESCRIPTION` and `DE_FEATURE_REQUEST` (e.g., loaded from `.env`).
 
-The conversation flow is clearly formatted so the user can clearly see what each agent is saying. Each message has visible metadata (timestamp, agent name, agent-specific color marks surrounding the message to clearly distinguish it from the rest of the conversation). Internal agent steps like tool calls and reasoning are hidden by default, but can be expanded if the user clicks on a summary line of those internal steps (can be collapsed back afterwards, when the user clicks again on them). The thinking process and active work is clearly indicated and animated so the user knows that the process is active. Each CRITIC message clearly shows its satisfaction signal (satisfied / not satisfied).
+The conversation flow is clearly formatted so the user can clearly see what each agent is saying. Each message has visible metadata (timestamp, agent name, agent-specific color marks surrounding the message to clearly distinguish it from the rest of the conversation). Internal agent steps like tool calls and reasoning are hidden by default, but can be expanded if the user clicks on a summary line of those internal steps (can be collapsed back afterwards, when the user clicks again on them). The thinking process and active work is clearly indicated and animated so the user knows that the process is active. Each CRITIC message clearly shows its satisfaction signal (satisfied / not satisfied). Each PROPOSER and CRITIC message shows the agent's confidence. After each round, a single line shows the round's disagreement, disagreement delta, confidence gap, and concession rate.
 
 The final result is clearly shown to the user with distinguishable formatting and colors. It states a short summary of the decision document and the path to the produced full decision document. It also states the number of tokens used, total cost, and total processing time (also, each metric broken down by agent).
 
@@ -56,6 +56,7 @@ Each turn, the PROPOSER returns a structured output containing:
 
 - **Replies:** for each CRITIC challenge, whether it was defended, revised, or conceded, and why (empty in the first turn).
 - **Full current proposal:** scope (in/out), assumptions, key decisions (agreed and rejected), success criteria (at least one), and open questions.
+- **Confidence:** its confidence (0–100) in the current proposal, with a one-sentence rationale.
 
 #### Agent 2: CRITIC
 
@@ -84,10 +85,22 @@ In a single LLM call, the CRITIC checks the latest proposal against the followin
 
 The CRITIC returns a structured output containing:
 
-- **Challenges:** a list of significant, specific challenges, each referencing the proposal item it targets.
+- **Challenges:** a list of significant, specific challenges, each referencing the proposal item it targets and rated by severity (minor, major, blocking).
 - **Satisfied:** an explicit boolean signal that the CRITIC is satisfied and ready to conclude, with a short justification.
+- **Confidence:** its confidence (0–100) in the current proposal, with a one-sentence rationale.
 
-The output must be consistent: `satisfied` is `true` if and only if the challenge list is empty. This is enforced by a Pydantic AI output validator, which raises `ModelRetry` on inconsistent output.
+The output must be consistent: `satisfied` is `true` if and only if the challenge list is empty, and a satisfied CRITIC must state a confidence of at least 70. This is enforced by a Pydantic AI output validator, which raises `ModelRetry` on inconsistent output.
+
+#### Confidence & Disagreement Scoring
+
+After each round, the orchestrator computes the following metrics deterministically from the agents' structured outputs, with no extra LLM calls:
+
+- **Disagreement:** the sum of the severity weights of the CRITIC's challenges in that round (minor = 1, major = 3, blocking = 5). Since the CRITIC re-raises every unresolved challenge, this covers all open disagreement. It is 0 exactly when the CRITIC is satisfied.
+- **Disagreement Delta:** the change in disagreement since the previous round.
+- **Confidence Gap:** the absolute difference between the PROPOSER's and the CRITIC's confidence.
+- **Concession Rate:** the share of the PROPOSER's replies marked as conceded. A rate that stays near 100% shows the PROPOSER is giving in too easily.
+
+Confidence is self-reported, and LLM self-assessments are poorly calibrated. To keep scores comparable across turns and models, both agents use the same rubric, stored in `prompts/` (90–100: implementable as-is, 70–89: minor gaps, 40–69: major gaps, below 40: fundamentally unclear). The scores are informational only and never decide termination. Each agent's last stated confidence is its confidence in the final agreed scope.
 
 #### Agent 3: SUMMARIZER
 
@@ -121,6 +134,7 @@ IMPORTANT: The SUMMARIZER does NOT change or omit any item of the PROPOSER's fin
     - **Decision Log:** each key decision made by the agents - what was agreed and what was rejected
     - **Success Criteria:** what conditions would indicate the feature is implemented successfully
     - **Open Questions:** what remains unresolved and requires human input
+    - **Deliberation Metrics:** each agent's final confidence and a per-round table of the scoring metrics. The orchestrator fills this section in from `chat.json`, not the SUMMARIZER, so the numbers cannot be misreported.
 
 ### Technical Constraints
 
