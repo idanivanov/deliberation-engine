@@ -1,9 +1,5 @@
 # Deliberation Engine System Design Document
 
-## Background & Problem Statement
-
-TODO
-
 ## Requirements & Scope
 
 - The user can clearly follow and inspect the agent communication.
@@ -32,52 +28,49 @@ This is a CLI tool. The engine starts with `deliberation-engine start [-s/--syst
 
 The conversation flow is clearly formatted so the user can clearly see what each agent is saying. Each message has visible metadata (timestamp, agent name, agent-specific color marks surrounding the message to clearly distinguish it from the rest of the conversation). Internal agent steps like tool calls and reasoning are hidden by default, but can be expanded if the user clicks on a summary line of those internal steps (can be collapsed back afterwards, when the user clicks again on them). The thinking process and active work is clearly indicated and animated so the user knows that the process is active.
 
-The present contents of the **scratchpad** are always visible to the user on a dedicated panel next to the conversation. The contents displayed are always up-to-date with the file.
-
 The final result is clearly shown to the user with distinguishable formatting and colors. It states a short summary of the decision document and the path to the produced full decision document. It also states the number of tokens used, total cost, and total processing time (also, each metric broken down by agent).
 
 ### Agents
 
 We use Pydantic AI for agent orchestration. We use OpenRouter as LLM provider, in order to switch easily between different families of models. The base model for each agent is provided as an env variable for easy configuration.
 
+#### Conversation State & Context Management
+
+For simplicity, the conversation history is the only state shared between the PROPOSER and the CRITIC.
+
+- Each agent keeps its own Pydantic AI message history: its own replies are assistant messages, and the other agent's latest reply is passed as the next user prompt. The history returned by each run is passed back as `message_history` to the agent's next run.
+- The feature request and system description are part of each agent's instructions, so they are always in context and never summarized away.
+- To keep the context bounded, both agents use `SummarizingCompaction` from `pydantic-ai-harness` (attached via `capabilities=[...]`). Once the history exceeds a token threshold, older messages are replaced by an LLM summary and the most recent messages are kept verbatim. The threshold, the number of kept messages, and the summarizer model are configurable via env variables.
+- Since the PROPOSER restates its full proposal every turn, the current proposal is always among the recent messages kept verbatim.
+- The orchestrator separately records the full, uncompacted conversation in `chat.json`. This is the input of the SUMMARIZER.
+
 #### Agent 1: PROPOSER
 
-Receives the original feature request and produces an initial structured interpretation: a proposed scope, a set of assumptions, and at least one success criterion. In subsequent rounds, the PROPOSER responds to the CRITIC's challenges by either defending, revising, or conceding points.
+Receives the original feature request and produces an initial structured interpretation: a proposed scope, a set of assumptions, and at least one success criterion. In subsequent rounds, the PROPOSER responds to each of the CRITIC's challenges by either defending, revising, or conceding it.
 
 - Must surface implicit assumptions in the request, not just restate it.
 - Must propose something concrete enough to be challenged.
 - Cannot simply agree with the CRITIC on everything - it must maintain position until given a convincing reason to change it.
 
-The context of the **PROPOSER** agent contains the following information:
+Each turn, the PROPOSER returns a structured output containing:
 
-- Agent system instructions
-- Last 3 full messages from the conversation (we sacrifice old messages to avoid context explosion).
-- The full contents of the current version of the scratchpad.
-- A list of all edits done to the scratchpad from its previous version (i.e., information about what did the previous agent change last)
-- The plain feature request and system description
+- **Replies:** for each CRITIC challenge, whether it was defended, revised, or conceded, and why (empty in the first turn).
+- **Full current proposal:** scope (in/out), assumptions, key decisions (agreed and rejected), success criteria (at least one), and open questions.
 
 #### Agent 2: CRITIC
 
-Reviews the PROPOSER's output and generates targeted challenges. These may be questions about missing constraints, objections to assumptions, or identification of scope risks. The CRITIC's goal is to make the proposal more robust - not to reject it entirely.
+Reviews the PROPOSER's latest proposal and generates targeted challenges. These may be questions about missing constraints, objections to assumptions, or identification of scope risks. The CRITIC's goal is to make the proposal more robust - not to reject it entirely.
 
 - Challenges must be specific - generic pushback like "this is too vague" is not sufficient.
 - Must signal when it is satisfied and ready to conclude, to avoid infinite loops.
 - Cannot declare satisfaction in round 1 - a minimum of 2 rounds of back-and-forth is required.
 
-The context of the **CRITIC** agent contains the following information:
-
-- Agent system instructions
-- Last 3 full messages from the conversation (we sacrifice old messages to avoid context explosion).
-- The full contents of the current version of the scratchpad.
-- A list of all edits done to the scratchpad from its previous version (i.e., information about what did the previous agent change last)
-- The plain feature request and system description
-
-The CRITIC checks for the following conditions when reviewing the PROPOSER's out at each turn:
+In a single LLM call, the CRITIC checks the latest proposal against the following criteria:
 
 - **Scope Completeness:** The scope (in/out) clearly satisfies all aspects of the feature request, given the system description (i.e., no scope items are missing).
 - **Scope Soundness:** Each scope item (in/out) is clearly relevant to the feature request. There are no irrelevant scope items.
-- **Scope Quality:** All scope items are concrete and well defined.  No tautology.
-- **Assumption Completess:** Assumptions address all identified gaps, derived from the feature request, given the system description.
+- **Scope Quality:** All scope items are concrete and well defined. No tautology.
+- **Assumption Completeness:** Assumptions address all identified gaps, derived from the feature request, given the system description.
 - **Assumption Soundness:** There are no irrelevant assumptions or verified claims that are wrongly marked as assumptions.
 - **Assumption Quality:** All assumptions are concrete and well defined. No tautology.
 - **Success Criteria Completeness:** All reasonable conditions that could decide if the feature implementation is successful are listed. Question to ask: "If all given success criteria are met, could the implementation still be considered unsuccessful due to some obvious, but unlisted condition?".
@@ -86,56 +79,36 @@ The CRITIC checks for the following conditions when reviewing the PROPOSER's out
 - **Open Question Completeness:** Each identified ambiguity that requires external input is covered by a specific open question.
 - **Open Question Soundness:** No noted open question can be answered by the provided context. Each open question can only be decided by external information that is currently missing.
 - **Open Question Quality:** All open questions are concrete and well defined. No tautology. A human can understand clearly what additional information or decision needs to be provided.
-- **Decision Log Alignment:** The CRITIC agrees with each key decision in the decision log - verifying what was agreed and rejected.
-- **Comment Coverage:** All CRITIC's comments - challenges, identified gaps, and clarification requests - have been addressed by the PROPOSER.
+- **Decision Log Alignment:** The CRITIC agrees with each key decision - verifying what was agreed and rejected.
+- **Challenge Coverage:** All of the CRITIC's previous challenges have been addressed by the PROPOSER.
 
-The CRITIC agent runs separate LLM calls for the following group checks, so that each criteria can be processed more reliably without context contamination:
-
-- Scope Review
-- Assumption Review
-- Success Criteria Review
-- Open Question Review
-- Alignment Review - Any other checks like decision log alignment, comment coverage, etc.
-
-It then summarizes the results from each check in a final output by writing comments in the scratchpad (if any) and answering in the chat. The summarization step of the CRITIC decides which comments from its substeps to include or ignore. If it decides that some comments are not significant, it can skip them. If no comments are judged as significant, the CRITIC is satisfied with the PROPOSER's output.
+The CRITIC returns a structured list of challenges, each referencing the proposal item it targets. It includes only significant challenges. An empty list means the CRITIC is satisfied.
 
 #### Agent 3: SUMMARIZER
 
-Produces the final decision document.
+Produces the final decision document from the full conversation in `chat.json`. Since the conversation may not fit into a single LLM call and no information may be missed, it uses Map-Reduce:
 
-The context of the **SUMMARIZER** agent contains the following information:
+1. **Split:** The conversation is split at message boundaries into chunks of at most N tokens. Consecutive chunks overlap by K messages, so no information is lost at cut points. N and K are configurable via env variables.
+2. **Map:** Each chunk is turned into a partial decision document (same schema, without overview) by a separate LLM call. All map calls run in parallel.
+3. **Reduce:** Neighbouring partial documents are merged pairwise and in parallel, preserving chronological order: later states supersede earlier ones, and duplicates from the overlaps are merged. This repeats until a single document remains.
+4. **Finalize:** The merged document is reconciled with the PROPOSER's last proposal, which is authoritative for the final scope, assumptions, success criteria, and open questions, and an overview is added.
 
-- Agent system instructions
-- The full contents of the current version of the scratchpad.
-- The plain feature request and system description
+Pydantic AI has no built-in map-reduce helper, so the map and reduce steps are plain `agent.run` calls combined with `asyncio.gather`.
 
-IMPORTANT: The SUMMARIZER does NOT change or omit any of the items produced by the PROPOSER. It only formats the document and adds an overview.
-
-#### Scratchpad
-
-All agents have shared access to a **scratchpad** - a text file that each agent can read and write to using a dedicated tool. This file is used to keep the current state of the scope, assumptions, key decisions, open questions, CRITIC's comments, etc. For example, if a scope item has been wrongly included and successfully challenged afterwards, it should be removed or changed in the scratchpad, so its older state is not present anymore. Likewise, when a comment is addressed successfully, the comment is no longer needed in the scratchpad and should also be removed. By the end, the CRITIC should be able to decide if the process is complete, when it is satisfied with the contents of the scratchpad. Each agent who writes to the scratchpad has the responsibility to keep its contents within the prescribed limits.
+IMPORTANT: The SUMMARIZER does NOT change or omit any item of the PROPOSER's final proposal. It adds the decision log history (what was agreed, rejected, and why), the challenge status of each assumption, and the overview.
 
 ### Flow
 
-The deliberation engine process flow consists of the following steps:
-
 1. Obtain system description and feature request as free text from the user (if not already provided).
-2. The PROPOSER agent produces the inital structured interpretation based on the provided input containing:
+2. The PROPOSER produces the initial proposal.
+3. The CRITIC reviews the latest proposal and returns its challenges.
+4. The PROPOSER replies to the challenges and restates the updated proposal. Steps 3 and 4 repeat until one of the stopping criteria is met:
 
-    - scope
-    - assumptions
-    - key decisions
-    - success criteria
-    - open questions
+    - **Minimum 2 Rounds:** The CRITIC must not be satisfied in the first round. This is a hard rule, checked by deterministic logic. If the CRITIC returns no challenges in the first round, it is re-invoked with an instruction emphasizing it must raise at least one challenge. This is retried 5 times. If after the 5th try there are still no challenges, the process stops with an error.
+    - **CRITIC Satisfied:** From the second round onward, if the CRITIC returns no challenges, the discussion is over.
+    - **Max Turns:** The conversation does not exceed **30** PROPOSER-CRITIC conversation turns. If the limit is reached, the conversation finishes with a clear WARNING "Limit of 30 Conversation Turns Reached". The SUMMARIZER is still invoked and the final decision file is produced, but it should include a warning that the deliberation process finished after reaching the maximum number of turns. This is a hard condition, enforced by deterministic logic.
 
-3. The CRITIC reviews the PROPOSER's outputs, challenges its outputs, searches for gaps, and asks for clarifications. This is done by adding notes to the scratchpad and writing in the chat. The CRITIC does not edit the PROPOSER's items directly, but only adds comments on them.
-4. The conversation between the CRITIC and the PROPOSER (steps 2 and 3) continues until the CRITIC is satisfied with the state of the scratchpad or a fixed number of turns is reached, according to the stopping criteria:
-
-    - **Minimum 2 Rounds:** The CRITIC must not agree on the first round. It can declare satisfaction only starting from the second round onward. This is a hard rule and deterministic logic checks if it is followed. If the CRITIC agent declares satisfaction on the first round, it is re-invoked with an instruction emphasizing it must raise at least one challenge in the first round. This is retried 5 times. If after the 5th try there are still no comments on the first round, the process stops with an error.
-    - **Has Comments:** The CRITIC has comments that need to be addressed by the PROPOSER. If the CRITIC produces no comments at a particular turn, this means it is satisfied with the PROPOSER's outputs and the discussion is over.
-    - **Max Turns:** The conversation does not exceed **30** PROPOSER-CRITIC conversation turns. If the limit is reached, the conversation finishes with a clear WARNING "Limit of 30 Conversation Turns Reached". The SUMMARIZER is sitll invoked and the final decision file is produced, but it should include a warning that the deliberation process finished after reaching the maximum number of turns. This is a hard condition, enforced by deterministic logic.
-
-5. Once the conversation finishes, the SUMARIZER agent takes the scratchpad and produces a well formatted **decision document** as equivalent Markdown and JSON files. The final document contains the following sections:
+5. Once the conversation finishes, the SUMMARIZER produces the **decision document** as equivalent Markdown and JSON files. The final document contains the following sections:
 
     - **Overview:** short executive summary of the deliberation conclusion
     - **Scope:** what the feature will and will not include
@@ -147,11 +120,9 @@ The deliberation engine process flow consists of the following steps:
 ### Technical Constraints
 
 - Prompts are explicitly separated from code for easier developer access. All prompts are stored in a separate module `prompts/`. No prompts live inside the rest of the codebase.
-- Feature request and system description text is limited to 10,000 characters and may NOT contain any kind of special formatting like markdown, HTML, XML, etc. Such special formatting will be cleaned before ingestions in the LLM context.
-- Scratchpad size must not exceed 50,000 characters. If an agent tries to make the file longer by writing to it, a hard rule in the system prevents it and asks the agent to reduce the length in order to fit into the limits. The agent has at most 5 consecutive attempts to do that, otherwise its write action will be canceled and the agent will have to explain what it tried to do in the conversation, after failing to write in the scratchpad.
-- Agent responses in the chat can be at most 2,000 tokens.
-- At any point in time there is **only one active agent**. This is the simplest way we avoid concurrence conflicts when reading and editing the scratchpad.
+- Feature request and system description text is limited to 10,000 characters and may NOT contain any kind of special formatting like markdown, HTML, XML, etc. Such special formatting will be cleaned before ingestion in the LLM context.
+- Agent responses can be at most 4,000 tokens.
+- PROPOSER and CRITIC turns are strictly sequential. Only the SUMMARIZER's map and reduce calls run in parallel.
 - Each session produces a set of files:
   - Final decision document (`.md`, `.json`)
-  - Scrarchpad varsion history (`scratchpad/scratchpad_vXXX_agent_YYYY.txt`, where `XXX` is the consecutive version number - 001, 002, etc. - and YYYY is the agent name - `PROPOSER`, `CRITIC`)
   - Full conversation history (`chat.json`) including internal agent steps and answers.
