@@ -154,7 +154,13 @@ def build_agents(inputs: Inputs, settings: Settings) -> Agents:
     )
 
     def agent[D, O](
-        name: str, model: str, output: type[O], deps: type[D], text: str
+        name: str,
+        model: str,
+        output: type[O],
+        deps: type[D],
+        text: str,
+        *,
+        settings: OpenRouterModelSettings = model_settings,
     ) -> Agent[D, O]:
         return Agent(
             model,
@@ -162,7 +168,7 @@ def build_agents(inputs: Inputs, settings: Settings) -> Agents:
             output_type=output,
             deps_type=deps,
             instructions=text.format(**context),
-            model_settings=model_settings,
+            model_settings=settings,
             retries=OUTPUT_RETRIES,
             defer_model_check=True,  # resolve the model on first run, so tests can override it
             capabilities=[_dump_context(name)],
@@ -175,8 +181,15 @@ def build_agents(inputs: Inputs, settings: Settings) -> Agents:
         ProposerDeps,
         prompts.proposer.INSTRUCTIONS,
     )
+    # The CRITIC reasons before it writes: without it, a weaker model closes revisions unexamined.
+    # "medium" keeps half of max_tokens for the review itself.
     critic = agent(
-        "critic", settings.critic_model, CriticReview, CriticDeps, prompts.critic.INSTRUCTIONS
+        "critic",
+        settings.critic_model,
+        CriticReview,
+        CriticDeps,
+        prompts.critic.INSTRUCTIONS,
+        settings=model_settings | {"openrouter_reasoning": {"effort": "medium"}},
     )
     summarizer = agent(
         "summarizer", settings.summarizer_model, Summary, list[str], prompts.summarizer.INSTRUCTIONS

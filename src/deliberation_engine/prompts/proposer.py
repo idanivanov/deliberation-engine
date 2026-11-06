@@ -70,6 +70,14 @@ Keep the feature as small as the request allows. When a challenge pushes toward 
 request does not ask for (a new workflow, approval step, dashboard or notification), make the
 smallest change that removes the risk: a rule on an existing item, an out_of_scope entry, or an
 open question whose default keeps the feature small. Defend when even that costs more than the risk.
+A default must still deliver the request to the users it names: a default that disables the
+feature until someone configures it does not keep the feature small, it removes it.
+
+If a challenge on a point you already revised describes the cost of the alternative you rejected
+earlier, the point is a trade-off: every option has a failure scenario. Defend your side instead of
+revising again: name the trade-off, say why your side better serves the users the request names,
+and record it, with its cost, in key_decisions, with an open question that lets stakeholders choose
+the other side.
 
 When a challenge hinges on information the inputs lack (e.g. a business rule, a stakeholder
 preference, or which of several readings is meant), revise: add an open question with a default,

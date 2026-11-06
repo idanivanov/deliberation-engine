@@ -65,10 +65,13 @@ contradict it or support a reading it ignores: show which part of the inputs, an
 for whom. Most first proposals deserve at least one challenge of each kind.
 
 Raise at most {max_new_challenges} new challenges per round, most severe first. Challenge a root
-cause once instead of every item it affects, and skip wording nitpicks. From round 2 on, focus on
-the replies and what changed, and check the interpretation again; raise a new challenge about an
-unchanged item only if it is major or blocking. Number new challenges C1, C2, ..., continuing your
-own sequence. Never reuse an ID.
+cause once instead of every item it affects, and skip wording nitpicks. Number new challenges C1,
+C2, ..., continuing your own sequence. Never reuse an ID.
+
+Every round, review the whole proposal again, not only what changed: an item you passed over
+earlier may be the weakest one now, and revisions elsewhere can break it. Each revised or added
+item is a new position, so review it as critically as a first proposal: does it hold up for each
+kind of user, and does it stay within what the request asks for?
 
 # Following up
 
@@ -78,11 +81,25 @@ scenario and why that is enough; it closes as:
 - defense_accepted: the defense shows the scenario will not happen, or that its consequence is
   acceptable given the inputs.
 - concession_accepted: the PROPOSER gave up the challenged position, and the result is sound.
-- revision_adequate: the revision fixes the problem.
+- revision_adequate: the failure scenario no longer happens, the revision creates no new failure
+  scenario, and it adds no scope beyond what the risk requires. A revision that adds a capability,
+  process or measurement out of proportion to the risk is scope creep: close the original
+  challenge only if the scenario is fixed, and challenge the revised item.
 - converted_to_open_question: the point depends on facts outside the inputs (such as which of
-  several readings the stakeholder means), and the proposal now has a specific open question with a
-  default for it. An open question that defers a decision the inputs let the PROPOSER make does not
-  count; say which decision.
+  several readings the stakeholder means), the proposal now has a specific open question for it,
+  and the failure scenario does not happen under the question's default, or the default is a
+  reasonable side of a trade-off the proposal names (see below). The default is what gets built
+  until someone answers, so if the scenario still happens under it, and no trade-off explains why,
+  the challenge stays open. An open question that defers a decision the inputs let the PROPOSER
+  make does not count either; say which decision.
+
+Some points are trade-offs: every option has a failure scenario (e.g. an accurate status reveals
+confidential activity, while a status that hides it is sometimes wrong). Do not keep challenging
+whichever side the proposal takes. Check that a key decision names the trade-off, takes a side the
+inputs support, and states its cost, and that an open question lets stakeholders choose otherwise.
+Then close it as defense_accepted or converted_to_open_question. Challenge the choice only if the
+inputs favor the other side, and never challenge a position for the cost of the alternative you
+pushed it away from.
 
 A defense does not answer the failure scenario when it:
 - relabels or disclaims the item (e.g. "this is a general default, not meant for X"), while the
@@ -92,9 +109,17 @@ A defense does not answer the failure scenario when it:
 
 Re-raise a defended challenge only with a new argument: the part of the scenario the defense leaves
 unanswered, a new scenario it does not answer, or that it settles a point that depends on facts
-neither of you has. Never repeat an argument the PROPOSER has already answered.
+neither of you has. Never repeat an argument the PROPOSER has already answered. Re-raise a revised
+challenge only if its original failure scenario still happens; a problem the revision introduces is
+a new challenge, with a new ID, on the revised item.
 
 # Concluding
+
+Before you are satisfied, read the whole proposal once more as the engineer who must build it from
+this text alone, and as each kind of user the system description names. Would it solve the
+feature request as a whole, not only answer the challenges raised so far? Does every key decision
+hold, including its rejected alternative? Any major or blocking problem you find is a new
+challenge.
 
 Set satisfied to true exactly when no major or blocking challenge remains. Keep each minor issue you
 still see open as a minor challenge, so it is recorded as a reservation. The justification says, in
@@ -130,7 +155,8 @@ The PROPOSER's latest turn, with its replies to your challenges and its updated 
 {turn}
 ```
 
-Challenges still open from your previous review: {open_ids}. Re-raise or resolve each of them."""
+Challenges still open from your previous review: {open_ids}. Re-raise or resolve each of them,
+then review the whole updated proposal, revised items included."""
 
 # Validator retry messages, one per broken rule.
 ROUND_ONE = (
