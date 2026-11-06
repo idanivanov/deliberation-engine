@@ -89,7 +89,9 @@ The CRITIC returns a structured output containing:
 - **Satisfied:** an explicit boolean signal that the CRITIC is satisfied and ready to conclude, with a short justification.
 - **Confidence:** its confidence (0–100) in the current proposal, with a one-sentence rationale.
 
-The output must be consistent: `satisfied` is `true` if and only if no blocking or major challenges remain (minor ones may remain as reservations), a satisfied CRITIC must state a confidence of at least 70, and every challenge must target an existing proposal item ID or section. This is enforced by a Pydantic AI output validator, which raises `ModelRetry` on inconsistent output.
+Severity follows a fixed rubric, stored in `prompts/`: blocking - the feature cannot be implemented or would clearly fail as proposed; major - a gap likely to lead to a wrong implementation; minor - an improvement that does not change what gets built. Since minor challenges never block convergence, the CRITIC cannot hold up a sound proposal over details.
+
+The output must be consistent: `satisfied` is `true` if and only if no blocking or major challenges remain (minor ones may remain as reservations), and every challenge must target an existing proposal item ID or section. This is enforced by a Pydantic AI output validator, which raises `ModelRetry` on inconsistent output.
 
 #### Confidence & Disagreement Scoring
 
@@ -126,10 +128,12 @@ A **round** is one PROPOSER turn followed by one CRITIC review.
 
     - **Minimum 2 Rounds:** The CRITIC must not signal satisfaction in the first round and must raise at least one challenge. This is a hard rule, checked by deterministic logic in the CRITIC's output validator. If violated, the validator raises `ModelRetry` with an instruction emphasizing it must raise at least one challenge. This is retried 5 times. If after the 5th try the CRITIC still signals satisfaction, the process stops with an error.
     - **Converged:** From the second round onward, the discussion is over as soon as the CRITIC explicitly signals satisfaction, i.e., no blocking or major challenges remain.
-    - **Stalled:** The disagreement has not decreased for 2 consecutive rounds (checked from round 3). The conversation finishes with a clear WARNING "Deliberation Stalled".
-    - **Max Rounds:** The conversation does not exceed **8** rounds. If the limit is reached, the conversation finishes with a clear WARNING "Limit of 8 Rounds Reached". This is a hard safety net, enforced by deterministic logic.
+    - **Stalled:** The lowest disagreement so far has not improved for **3** consecutive rounds, e.g., because the agents are deadlocked on the same challenges. The conversation finishes with a clear WARNING "Deliberation Stalled".
+    - **Max Rounds:** The conversation does not exceed **20** rounds. If the limit is reached, the conversation finishes with a clear WARNING "Limit of 20 Rounds Reached". This is a hard safety net, enforced by deterministic logic.
 
-    In all cases, except on error, the SUMMARIZER is invoked and the decision document is produced, including the termination reason (converged, stalled, or max rounds). Rationale: an empty challenge list as the condition for being done would rarely be met, so runs would drift to the round limit. The severity threshold defines "done" as "no major gaps left", and the stall rule ends unproductive loops early, surfacing the remaining tension instead of hiding it.
+    Both stalled and max rounds thresholds are configurable via env variables. In all cases, except on error, the SUMMARIZER is invoked and the decision document is produced, including the termination reason (converged, stalled, or max rounds).
+
+    Rationale: Converged is the intended way to finish. An empty challenge list as the condition for being done would rarely be met, so runs would drift to the round limit. The severity threshold defines "done" as "no major gaps left". Stalled and Max Rounds only catch edge cases: the stall rule tolerates temporary setbacks (e.g., new challenges after a revision) and only fires on a sustained lack of progress, and the round limit is a last-resort safety net. In both cases, the remaining tension is surfaced instead of hidden.
 
 5. Once the conversation finishes, the SUMMARIZER produces the **decision document** as equivalent Markdown and JSON files. The final document contains the following sections:
 
