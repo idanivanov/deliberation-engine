@@ -32,7 +32,7 @@ class Item(BaseModel):
 class KeyDecision(BaseModel):
     id: str
     decision: str
-    status: Literal["agreed", "rejected"]
+    rejected: str
     reason: str
 
 

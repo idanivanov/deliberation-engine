@@ -59,12 +59,12 @@ Receives the original feature request and produces an initial structured interpr
 - Cannot simply agree with the CRITIC on everything - it must maintain position until given a convincing reason to change it.
 - Concedes or revises only when a challenge shows a concrete failure scenario, a contradiction with the feature request or system description, or a missing constraint. Otherwise, it defends its position with a counter-argument. A revision must change the proposal, not just adopt the CRITIC's wording.
 - When a challenge hinges on information that is in neither the system description nor the feature request (e.g., what "right person" means), the PROPOSER resolves it by revising the proposal with a specific open question plus a stated default that holds until the question is answered. This counts as a revision. Open questions must not be used to dodge decisions the provided context allows the PROPOSER to make.
-- When it concedes or revises, it records the outcome as a key decision (what was agreed or rejected, and why), so dropped or changed items stay visible in the decision log.
+- When it concedes or revises, it records the outcome as a key decision (the position it now takes, the one it gave up as rejected, and why), so dropped or changed items stay visible in the decision log.
 
 Each turn, the PROPOSER returns a structured output containing:
 
 - **Replies:** for each CRITIC challenge (by ID), whether it was defended, revised, or conceded, and why (empty in the first turn).
-- **Full current proposal:** scope (in/out), assumptions, key decisions (agreed and rejected, each with a one-sentence reason), success criteria (at least one), and open questions. Each item has a stable ID (e.g., S1, A1, D1, SC1, Q1) that is kept across revisions.
+- **Full current proposal:** scope (in/out), assumptions, key decisions (each with the option taken, the alternative rejected, and a one-sentence reason), success criteria (at least one), and open questions. Each item has a stable ID (e.g., S1, A1, D1, SC1, Q1) that is kept across revisions.
 - **Confidence:** its confidence (0–100) in the current proposal, with a one-sentence rationale.
 
 The output must be consistent: every challenge in the latest CRITIC review has exactly one reply, replies reference only existing challenge IDs, item IDs are unique, and at least one success criterion exists. This is enforced by the schema and a Pydantic AI output validator, which raises `ModelRetry` otherwise, so a challenge can never be silently ignored.
@@ -86,7 +86,7 @@ In a single LLM call, the CRITIC checks each section of the latest proposal (sco
 
 It also checks:
 
-- **Decision Log Alignment:** The CRITIC agrees with each key decision - verifying what was agreed and rejected.
+- **Decision Log Alignment:** The CRITIC agrees with each key decision - verifying both the option taken and the alternative rejected. A key decision it leaves unchallenged counts as agreed.
 - **Challenge Coverage:** Each of the PROPOSER's replies actually addresses its challenge (the orchestrator guarantees that a reply exists). A defense is accepted only if it answers the failure scenario (shows it will not happen, or that its consequence is acceptable); relabeling the item, or arguing from the request's wording when the system description supports another reading, does not. After a defense, the CRITIC either accepts it (resolving the challenge), or re-raises it, stating the part of the scenario the defense leaves unanswered, a new failure scenario, or that the defense settles a point that depends on facts neither agent has. It does not re-raise a defended challenge with the same argument; a re-raised challenge keeps its ID.
 
 The CRITIC returns a structured output containing:
@@ -125,7 +125,7 @@ Writes the narrative parts of the decision document in a single LLM call: the ov
 
 Its input is a condensed transcript that the orchestrator builds from the structured outputs: the inputs; then, per round, the CRITIC's challenges and resolved list and the PROPOSER's replies; then the final proposal, the termination reason, and the CRITIC's final justification. The restated proposals are the only redundancy in the full conversation, so keeping only the final one loses nothing.
 
-IMPORTANT: The orchestrator copies the scope, assumptions, key decisions, success criteria, and open questions verbatim from the PROPOSER's final proposal into the decision document, and computes the assumption status, the unresolved disagreements, and the metrics deterministically. The SUMMARIZER cannot change or omit any of them; it only adds the overview and the decision rationales.
+IMPORTANT: The orchestrator copies the scope, assumptions, key decisions, success criteria, and open questions verbatim from the PROPOSER's final proposal into the decision document, and computes the assumption and decision statuses, the unresolved disagreements, and the metrics deterministically. The SUMMARIZER cannot change or omit any of them; it only adds the overview and the decision rationales.
 
 ### Flow
 
@@ -151,7 +151,7 @@ A **round** is one PROPOSER turn followed by one CRITIC review.
     - **Overview:** short executive summary of the deliberation conclusion, including how it ended (the termination reason, with the CRITIC's satisfaction justification or the warning). Written by the SUMMARIZER.
     - **Scope:** what the feature will and will not include. Copied verbatim from the final proposal.
     - **Assumptions:** what was assumed and whether it was challenged or accepted. Copied verbatim from the final proposal; the status is computed by the orchestrator: accepted (never challenged), or challenged with the PROPOSER's last reply to the challenge (defended / revised / conceded).
-    - **Decision Log:** each key decision made by the agents - what was agreed and what was rejected. Copied verbatim from the final proposal, each with the SUMMARIZER's rationale.
+    - **Decision Log:** each key decision made by the agents - what was agreed and what was rejected. Copied verbatim from the final proposal (the option taken, the alternative rejected, the reason), each with the SUMMARIZER's rationale. The status is computed by the orchestrator, because only the CRITIC can agree to a PROPOSER's decision: agreed (no challenge on it is open at termination), or disputed (a challenge on it is still open).
     - **Success Criteria:** what conditions would indicate the feature is implemented successfully. Copied verbatim from the final proposal.
     - **Open Questions:** what remains unresolved and requires human input. Copied verbatim from the final proposal.
     - **Unresolved Disagreements:** the challenges still open at termination (minor reservations if converged), with the PROPOSER's latest reply to each, or "raised in the final round, no reply". The orchestrator fills this section in from the last CRITIC review.
@@ -170,4 +170,4 @@ A **round** is one PROPOSER turn followed by one CRITIC review.
 
 ### Testing
 
-The termination paths (round-1 retry, converged, stalled, max rounds), both output validators, the metrics, and the deterministic document assembly (verbatim copy, assumption status, unresolved disagreements) are covered by tests that script the agent outputs with Pydantic AI's `FunctionModel`, without API calls.
+The termination paths (round-1 retry, converged, stalled, max rounds), both output validators, the metrics, and the deterministic document assembly (verbatim copy, assumption and decision status, unresolved disagreements) are covered by tests that script the agent outputs with Pydantic AI's `FunctionModel`, without API calls.

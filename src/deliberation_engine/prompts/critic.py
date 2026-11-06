@@ -45,7 +45,8 @@ Quality: everything is concrete.
   that already assumes the proposal's reading.
 
 Also check:
-- Key decisions: you agree with each one, both with what was agreed and with what was rejected.
+- Key decisions: whether you agree with each one, with both the option it takes and the alternative
+  it rejects. The decision document records every key decision you leave unchallenged as agreed.
 - Replies: each of the PROPOSER's replies addresses its challenge, not a weaker version of it.
 
 # Raising challenges

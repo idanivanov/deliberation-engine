@@ -106,7 +106,7 @@ def proposer_body(turn: ProposerTurn) -> RenderableType:
         ]
         blocks.append(section("Replies", rows))
     decisions = [
-        (d.id, Text.assemble((d.status, "bold"), " ", d.decision, (f" · {d.reason}", "dim")))
+        (d.id, Text.assemble(d.decision, (f" · {d.reason}\nrejected: {d.rejected}", "dim")))
         for d in p.key_decisions
     ]
     questions = [
@@ -268,12 +268,13 @@ class Renderer:
     def finish(self, doc: DecisionDocument, turns: list[Turn], run_dir: Path) -> None:
         h = doc.header
         challenged = sum(a.status == "challenged" for a in doc.assumptions)
+        disputed = sum(d.status == "disputed" for d in doc.decision_log)
         counts = " · ".join(
             [
                 f"{len(doc.in_scope)} in scope",
                 f"{len(doc.out_of_scope)} out of scope",
                 f"{counted(doc.assumptions, 'assumption')} ({challenged} challenged)",
-                counted(doc.decision_log, "key decision"),
+                f"{counted(doc.decision_log, 'key decision')} ({disputed} disputed)",
                 counted(doc.success_criteria, "success criterion", "success criteria"),
                 counted(doc.open_questions, "open question"),
                 counted(doc.unresolved_disagreements, "unresolved disagreement"),

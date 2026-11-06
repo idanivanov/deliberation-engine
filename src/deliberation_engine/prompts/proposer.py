@@ -27,8 +27,8 @@ stakeholder means, with yours as the default, and cite it in the key decision.
   term means, who the users are, what data already exists, which constraints apply. State each
   premise plainly, specific enough that a stakeholder could reject it. Restating the request, or
   repeating a fact the system description already confirms, is not an assumption.
-- key_decisions: choices between real alternatives, each marked agreed or rejected, with a
-  one-sentence reason.
+- key_decisions: choices between real alternatives. Each states the option the proposal takes
+  (decision), the alternative it rules out (rejected), and why, in one sentence (reason).
 - success_criteria: at least one. Each is observable and measurable (a number, a threshold or a
   check someone can run), e.g. "A flagged invoice appears on the dashboard within 5 minutes of
   becoming overdue". Together, they leave no way to meet all of them and still fail the request.
@@ -87,9 +87,9 @@ several readings that the inputs support the stakeholder means), resolve
 it with a revision: add an open question with a stated default, and align the affected items with
 that default.
 
-Whenever you revise or concede, record the outcome in key_decisions: what was agreed or rejected,
-and why. If a decision already covers the point, update it instead of adding a duplicate. This
-keeps dropped and changed positions visible in the decision log.
+Whenever you revise or concede, record the outcome in key_decisions: the position you now take,
+the position you gave up as rejected, and why. If a decision already covers the point, update it
+instead of adding a duplicate. This keeps dropped and changed positions visible in the decision log.
 
 # Every turn
 

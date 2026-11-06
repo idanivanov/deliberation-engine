@@ -9,7 +9,7 @@ from deliberation_engine.document import assemble, render_markdown
 from deliberation_engine.orchestrator import round_metrics
 from deliberation_engine.schemas import KeyDecision, OpenQuestion, Rationale, Summary
 
-DECISION = KeyDecision(id="D1", decision="Alert after 90 days", status="agreed", reason="C1")
+DECISION = KeyDecision(id="D1", decision="Alert after 90 days", rejected="30 days", reason="C1")
 QUESTION = OpenQuestion(id="Q1", question="Which threshold?", default="90 days")
 
 # Round 1: C1 and C2 raised. Round 2: C2 conceded and closed, C3 raised.
@@ -41,16 +41,16 @@ REVIEWS = [
 ]
 
 
-def build_document():
+def build_document(proposals=PROPOSALS, reviews=REVIEWS):
     metrics = []
-    for rnd, (p, r) in enumerate(zip(PROPOSALS, REVIEWS, strict=True), start=1):
+    for rnd, (p, r) in enumerate(zip(proposals, reviews, strict=True), start=1):
         metrics.append(round_metrics(rnd, p, r, metrics[-1] if metrics else None))
     summary = Summary(rationales=[Rationale(decision_id="D1", rationale="C1 showed")], overview="o")
     return assemble(
         inputs=INPUTS,
         models={"proposer": "p", "critic": "c", "summarizer": "s"},
-        proposals=PROPOSALS,
-        reviews=REVIEWS,
+        proposals=proposals,
+        reviews=reviews,
         metrics=metrics,
         termination="converged",
         summary=summary,
@@ -72,6 +72,19 @@ def test_assumption_status_comes_from_the_challenges_and_the_last_reply():
     assert (a1.status, a1.challenges, a1.last_reply) == ("challenged", ["C1"], "revised")
     assert (a2.status, a2.challenges, a2.last_reply) == ("challenged", ["C2", "C3"], "defended")
     assert (a3.status, a3.challenges, a3.last_reply) == ("challenged", ["C4"], None)
+
+
+def test_decision_status_comes_from_the_critic_not_the_proposer():
+    decisions = [DECISION.model_copy(update={"id": f"D{i}"}) for i in (1, 2, 3)]
+    proposals = [turn(key_decisions=decisions), turn(("C1", "revised"), key_decisions=decisions)]
+    reviews = [
+        review(challenge("C1", target="D1"), challenge("C2", target="D2")),
+        review(challenge("C2", "minor", target="D2"), resolved=(("C1", "revision_adequate"),)),
+    ]
+    d1, d2, d3 = build_document(proposals, reviews).decision_log
+    assert (d1.status, d1.challenges) == ("agreed", ["C1"])
+    assert (d2.status, d2.challenges) == ("disputed", ["C2"])
+    assert (d3.status, d3.challenges) == ("agreed", [])
 
 
 def test_unresolved_disagreements_carry_the_latest_reply():

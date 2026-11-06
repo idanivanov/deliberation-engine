@@ -1,7 +1,8 @@
 """The decision document: deterministic assembly from the agents' outputs, and Markdown rendering.
 
 Scope, assumptions, key decisions, success criteria and open questions are copied verbatim from
-the final proposal. Assumption statuses, unresolved disagreements and metrics are computed here.
+the final proposal. Assumption and decision statuses, unresolved disagreements and metrics are
+computed here.
 The SUMMARIZER only contributes the overview and the decision rationales.
 """
 
@@ -43,6 +44,8 @@ class AssumptionStatus(Item):
 
 
 class LoggedDecision(KeyDecision):
+    status: Literal["agreed", "disputed"]  # disputed if a challenge on it is open at the end
+    challenges: list[str]
     rationale: str
 
 
@@ -80,17 +83,30 @@ def assemble(
     replies = [(rnd, r) for rnd, turn in enumerate(proposals, start=1) for r in turn.replies]
     latest_reply = {r.challenge_id: (rnd, r) for rnd, r in replies}  # later rounds win
     rationales = {r.decision_id: r.rationale for r in summary.rationales}
+    still_open = {c.id for c in reviews[-1].challenges}
+
+    def challenges_on(item_id: str) -> list[str]:
+        return list(
+            dict.fromkeys(c.id for r in reviews for c in r.challenges if c.target == item_id)
+        )
 
     def assumption(item: Item) -> AssumptionStatus:
-        ids = list(
-            dict.fromkeys(c.id for r in reviews for c in r.challenges if c.target == item.id)
-        )
+        ids = challenges_on(item.id)
         answers = [r.action for _, r in replies if r.challenge_id in ids]
         return AssumptionStatus(
             **item.model_dump(),
             status="challenged" if ids else "accepted",
             challenges=ids,
             last_reply=answers[-1] if answers else None,
+        )
+
+    def decision(d: KeyDecision) -> LoggedDecision:
+        ids = challenges_on(d.id)
+        return LoggedDecision(
+            **d.model_dump(),
+            status="disputed" if still_open.intersection(ids) else "agreed",
+            challenges=ids,
+            rationale=rationales.get(d.id, ""),
         )
 
     def disagreement(challenge: Challenge) -> Disagreement:
@@ -110,10 +126,7 @@ def assemble(
         in_scope=final.in_scope,
         out_of_scope=final.out_of_scope,
         assumptions=[assumption(a) for a in final.assumptions],
-        decision_log=[
-            LoggedDecision(**d.model_dump(), rationale=rationales.get(d.id, ""))
-            for d in final.key_decisions
-        ],
+        decision_log=[decision(d) for d in final.key_decisions],
         success_criteria=final.success_criteria,
         open_questions=final.open_questions,
         unresolved_disagreements=[disagreement(c) for c in reviews[-1].challenges],
@@ -139,6 +152,12 @@ def assumption_label(a: AssumptionStatus) -> str:
         return "accepted (never challenged)"
     reply = f"last reply: {a.last_reply}" if a.last_reply else "raised in the final round, no reply"
     return f"challenged by {', '.join(a.challenges)}; {reply}"
+
+
+def decision_label(d: LoggedDecision) -> str:
+    if not d.challenges:
+        return "agreed (never challenged)"
+    return f"{d.status}, challenged by {', '.join(d.challenges)}"
 
 
 def render_markdown(doc: DecisionDocument) -> str:
@@ -199,7 +218,8 @@ def render_markdown(doc: DecisionDocument) -> str:
         "",
         *bullets(
             [
-                f"- **{d.id}** ({d.status}) {d.decision} — {d.reason}\n  - Rationale: {d.rationale}"
+                f"- **{d.id}** {d.decision} — _{decision_label(d)}_\n  - Rejected: {d.rejected}"
+                f"\n  - Reason: {d.reason}\n  - Rationale: {d.rationale}"
                 for d in doc.decision_log
             ]
         ),

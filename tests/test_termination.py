@@ -13,7 +13,7 @@ from deliberation_engine.schemas import KeyDecision, Rationale, Summary
 
 
 async def test_converges_when_the_critic_is_satisfied(tmp_path):
-    decision = KeyDecision(id="D1", decision="Use 90 days", status="agreed", reason="C1")
+    decision = KeyDecision(id="D1", decision="Use 90 days", rejected="Use 30 days", reason="C1")
     final = turn(("C1", "revised"), score=85, key_decisions=[decision])
     document, deliberation, events = await deliberate(
         tmp_path,
