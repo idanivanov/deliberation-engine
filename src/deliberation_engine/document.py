@@ -155,7 +155,7 @@ def render_markdown(doc: DecisionDocument) -> str:
 
     def unresolved(d: Disagreement) -> str:
         c = d.challenge
-        lines = [f"- **{c.id}** ({c.severity}, on {c.target}) {c.risk}", f"  - Ask: {c.suggestion}"]
+        lines = [f"- **{c.id}** ({c.severity}, on {c.target}) {c.risk}"]
         if d.reply:
             lines.append(
                 f"  - PROPOSER, round {d.reply_round} ({d.reply.action}): {d.reply.reason}"

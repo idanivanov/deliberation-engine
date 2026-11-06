@@ -72,12 +72,12 @@ class Challenge(BaseModel):
     id: str
     target: str
     risk: str
-    suggestion: str
     severity: Severity
 
 
 class Resolution(BaseModel):
     challenge_id: str
+    reason: str
     closed_by: Closure
 
 

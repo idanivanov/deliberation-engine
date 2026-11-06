@@ -87,12 +87,12 @@ In a single LLM call, the CRITIC checks each section of the latest proposal (sco
 It also checks:
 
 - **Decision Log Alignment:** The CRITIC agrees with each key decision - verifying what was agreed and rejected.
-- **Challenge Coverage:** Each of the PROPOSER's replies actually addresses its challenge (the orchestrator guarantees that a reply exists). After a defense, the CRITIC either accepts it (resolving the challenge), escalates with a new concrete failure scenario, or asks for the point to become an open question. It does not re-raise a defended challenge unchanged; an escalation keeps the challenge's ID.
+- **Challenge Coverage:** Each of the PROPOSER's replies actually addresses its challenge (the orchestrator guarantees that a reply exists). A defense is accepted only if it answers the failure scenario (shows it will not happen, or that its consequence is acceptable); relabeling the item, or arguing from the request's wording when the system description supports another reading, does not. After a defense, the CRITIC either accepts it (resolving the challenge), or re-raises it, stating the part of the scenario the defense leaves unanswered, a new failure scenario, or that the defense settles a point that depends on facts neither agent has. It does not re-raise a defended challenge with the same argument; a re-raised challenge keeps its ID.
 
 The CRITIC returns a structured output containing:
 
-- **Challenges:** a list of significant, specific challenges. Each has a stable ID (e.g., C1), the ID of the proposal item it targets (or the section, for missing items), a severity (minor, major, blocking), the concrete risk or failure scenario, and a question or suggested resolution. Unresolved challenges are re-raised with the same ID. At most 5 new challenges are raised per round, most severe first.
-- **Resolved:** the IDs of previously open challenges closed in this round, each with how it closed: defense accepted, concession accepted, revision adequate, or converted to an open question.
+- **Challenges:** a list of significant, specific challenges. Each has a stable ID (e.g., C1), the ID of the proposal item it targets (or the section, for missing items), a severity (minor, major, blocking) and the concrete risk or failure scenario. The CRITIC states problems, never fixes: how to answer is the PROPOSER's call. Unresolved challenges are re-raised with the same ID. At most 5 new challenges are raised per round, most severe first.
+- **Resolved:** the IDs of previously open challenges closed in this round, each with a reason (what the reply did about the failure scenario, generated before the verdict) and how it closed: defense accepted, concession accepted, revision adequate, or converted to an open question.
 - **Satisfied:** an explicit boolean signal that the CRITIC is satisfied and ready to conclude, with a short justification.
 - **Confidence:** its confidence (0–100) in the current proposal, with a one-sentence rationale.
 

@@ -238,7 +238,10 @@ class Renderer:
         blocks = []
         if review.resolved:
             rows = [
-                (r.challenge_id, Text(r.closed_by.replace("_", " "), "green"))
+                (
+                    r.challenge_id,
+                    Text.assemble((r.closed_by.replace("_", " "), "green"), f"\n{r.reason}"),
+                )
                 for r in review.resolved
             ]
             blocks.append(section("Resolved", rows))
@@ -249,7 +252,6 @@ class Renderer:
                 (c.severity, SEVERITY_STYLES[c.severity]),
                 (f" · on {c.target} · {label}\n", "dim"),
                 c.risk,
-                (f"\n→ {c.suggestion}", "italic"),
             )
             rows.append((c.id, text))
         self.raised.update(c.id for c in review.challenges)

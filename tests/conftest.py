@@ -51,9 +51,7 @@ def turn(*replies: tuple[str, str], score: int = 70, **sections) -> ProposerTurn
 
 
 def challenge(id: str, severity: str = "major", target: str = "A1") -> Challenge:
-    return Challenge(
-        id=id, target=target, risk=f"risk {id}", suggestion=f"fix {id}", severity=severity
-    )
+    return Challenge(id=id, target=target, risk=f"risk {id}", severity=severity)
 
 
 def review(
@@ -64,7 +62,10 @@ def review(
 ) -> CriticReview:
     """A CRITIC review; each resolution is a (challenge ID, how it closed) pair."""
     return CriticReview(
-        resolved=[Resolution(challenge_id=c, closed_by=how) for c, how in resolved],
+        resolved=[
+            Resolution(challenge_id=c, reason=f"{how} because", closed_by=how)
+            for c, how in resolved
+        ],
         challenges=list(challenges),
         justification="critic justification",
         satisfied=satisfied,
