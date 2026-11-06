@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +15,7 @@ from rich.status import Status
 from rich.table import Table
 from rich.text import Text
 
-from .agents import build_agents
+from .agents import build_agents, context_log
 from .config import Inputs, Settings, clean
 from .document import DecisionDocument, format_delta, termination_label
 from .orchestrator import (
@@ -56,6 +57,11 @@ def build_parser() -> argparse.ArgumentParser:
     request.add_argument("--request-file", type=Path, help="read the feature request from a file")
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="show validator retries and model reasoning"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="dump the full context of every LLM request to context.log in the run directory",
     )
     return parser
 
@@ -307,6 +313,11 @@ def main(argv: list[str] | None = None) -> None:
 
     run_dir = Path("runs") / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     run_dir.mkdir(parents=True, exist_ok=True)
+    if args.debug:
+        handler = logging.FileHandler(run_dir / "context.log")
+        handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+        context_log.addHandler(handler)
+        context_log.setLevel(logging.DEBUG)
     console = Console(record=True)
     renderer = Renderer(console, args.verbose)
     deliberation = Deliberation(build_agents(inputs, settings), inputs, settings, run_dir, renderer)

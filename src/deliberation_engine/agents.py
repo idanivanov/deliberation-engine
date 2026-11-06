@@ -4,12 +4,16 @@ Each check returns the list of broken rules; the agent's output validator sends 
 the model in one `ModelRetry`, so a single retry can fix every problem.
 """
 
+import logging
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.capabilities import Hooks
+from pydantic_ai.models import ModelRequestContext
 from pydantic_ai.models.openrouter import OpenRouterModelSettings
+from pydantic_core import to_json
 
 from . import prompts
 from .config import Inputs, Settings
@@ -18,6 +22,8 @@ from .schemas import SECTIONS, CriticReview, ProposerTurn, Summary
 MIN_ROUNDS = 2
 MAX_NEW_CHALLENGES = 5
 OUTPUT_RETRIES = 3
+
+context_log = logging.getLogger("deliberation_engine.context")
 
 
 @dataclass
@@ -114,6 +120,27 @@ def _retry_on(problems: list[str]) -> None:
         raise ModelRetry(prompts.shared.RETRY.format(problems=bullets))
 
 
+def _dump_context(name: str) -> Hooks:
+    """At DEBUG level, log the full context of every model request (each retry included)."""
+    hooks = Hooks()
+
+    @hooks.on.prepare_model_request
+    async def _log(ctx: RunContext, request: ModelRequestContext) -> ModelRequestContext:
+        if context_log.isEnabledFor(logging.DEBUG):
+            params = request.model_request_parameters
+            context = {
+                "instructions": params.instruction_parts,
+                "messages": request.messages,
+                "output_tools": params.output_tools,
+                "model_settings": request.model_settings,
+            }
+            dump = to_json(context, indent=2, fallback=str).decode()
+            context_log.debug("=== %s · %s ===\n%s", name.upper(), request.model.model_name, dump)
+        return request
+
+    return hooks
+
+
 def build_agents(inputs: Inputs, settings: Settings) -> Agents:
     context = {
         "inputs": prompts.shared.INPUTS.format(
@@ -138,6 +165,7 @@ def build_agents(inputs: Inputs, settings: Settings) -> Agents:
             model_settings=model_settings,
             retries=OUTPUT_RETRIES,
             defer_model_check=True,  # resolve the model on first run, so tests can override it
+            capabilities=[_dump_context(name)],
         )
 
     proposer = agent(
