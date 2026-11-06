@@ -2,6 +2,14 @@
 
 ## Requirements & Scope
 
+- The user can clearly follow and inspect the agent communication.
+- Multi-round agent communication: At least 2 rounds.
+- Structured final output in the form of a decision document.
+- Graceful termination: The system must have a defined, intentional termination condition, not a hardcoded round limit alone. The CRITIC must be capable of signaling that deliberation is complete.
+- Configurable input: The system description and feature request should be injectable via an environment variable or CLI.
+- Prompt transparency: Agent prompts should be clearly separated from the orchestration logic for easier developer review.
+- Confidence or disagreement scoring: Have each agent score its own confidence in the final agreed scope, or produce a disagreement delta between their positions at each round. This surfaces tension explicitly rather than burying it in prose.
+
 ### Out-of-Scope
 
 - Graphical user interface, beyond the simple CLI.
