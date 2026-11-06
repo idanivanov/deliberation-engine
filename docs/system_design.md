@@ -16,11 +16,11 @@ All code is contained in a single Python package `deliberation_engine`. The pack
 
 This is a CLI tool. The engine starts with `deliberation-engine start [-s/--system "<plain text description of the target system for the request>"] [-r/--request "<feature request in plain text>"]`. The deliberation process starts immediately if the system description and feature request are provided. Otherwise, the user is first prompted to provide the system description and feature request in plain text when the command is called. Those parameters can also be provided via env variables: `DE_SYSTEM_DESCRIPTION` and `DE_FEATURE_REQUEST` (e.g., loaded from `.env`).
 
-The conversation flow is clearly formatted so the user can clearly see what each agent is saying. Each message has visible metadata (timestamp, agent name, agent-specific color marks surrounding the message to clearly distingquish it from the rest of the conversation). Internal agent steps like tool calls and reasoning are hidden by default, but can be expanded if the user clicks on a summary line of those internal steps (can be collapsed back afterwards, when the user clicks again on them). The thinking process and active work is clearly indicated and animated so the user knows that the process is active.
+The conversation flow is clearly formatted so the user can clearly see what each agent is saying. Each message has visible metadata (timestamp, agent name, agent-specific color marks surrounding the message to clearly distinguish it from the rest of the conversation). Internal agent steps like tool calls and reasoning are hidden by default, but can be expanded if the user clicks on a summary line of those internal steps (can be collapsed back afterwards, when the user clicks again on them). The thinking process and active work is clearly indicated and animated so the user knows that the process is active.
 
 The present contents of the **scratchpad** are always visible to the user on a dedicated panel next to the conversation. The contents displayed are always up-to-date with the file.
 
-The final result is clearly shown to the user with distunguishable formatting and colors. It states a short summary of the decision document and the path to the produced full decision document. It also states the number of tokens used, total cost, and total processing time (also, each metric broken down by agent).
+The final result is clearly shown to the user with distinguishable formatting and colors. It states a short summary of the decision document and the path to the produced full decision document. It also states the number of tokens used, total cost, and total processing time (also, each metric broken down by agent).
 
 ### Agents
 
@@ -37,7 +37,7 @@ Receives the original feature request and produces an initial structured interpr
 The context of the **PROPOSER** agent contains the following information:
 
 - Agent system instructions
-- Last 3 full messeges from the conversation (we sacrifice old messages to avoid context explosion).
+- Last 3 full messages from the conversation (we sacrifice old messages to avoid context explosion).
 - The full contents of the current version of the scratchpad.
 - The plain feature request and system description
 
@@ -52,7 +52,7 @@ Reviews the PROPOSER's output and generates targeted challenges. These may be qu
 The context of the **CRITIC** agent contains the following information:
 
 - Agent system instructions
-- Last 3 full messeges from the conversation (we sacrifice old messages to avoid context explosion).
+- Last 3 full messages from the conversation (we sacrifice old messages to avoid context explosion).
 - The full contents of the current version of the scratchpad.
 - The plain feature request and system description
 
@@ -61,12 +61,12 @@ The CRITIC checks for the following conditions when reviewing the PROPOSER's out
 - **Scope Completeness:** The scope (in/out) clearly satisfies all aspects of the feature request, given the system description (i.e., no scope items are missing).
 - **Scope Soundness:** Each scope item (in/out) is clearly relevant to the feature request. There are no irrelevant scope items.
 - **Scope Quality:** All scope items are concrete and well defined.  No tautology.
-- **Assumtion Completess:** Assumptions address all identified gaps, derived from the feature request, given the system description.
-- **Assumption Soundness:** There are no irrelevant assumptions or verified claims that are wrongly marked as assumtions.
+- **Assumption Completess:** Assumptions address all identified gaps, derived from the feature request, given the system description.
+- **Assumption Soundness:** There are no irrelevant assumptions or verified claims that are wrongly marked as assumptions.
 - **Assumption Quality:** All assumptions are concrete and well defined. No tautology.
-- **Success Criteria Completeness:** All reasonable conditions that could decide if the feature implementation is successful are listed. Question to ask: "If all given success criteria are met, could the implementation still be considered unsucessful due to some obvious, but unlisted condition?".
-- **Success Criteria Soundness:** Each condition item is implicitly or explicitly required for the feature request, given the provided system description. Question to ask: "If this condition is NOT met, could the implementation still be considered objectivelly successful?".
-- **Success Criteria Quality:** All sucess criteria are concrete, measurable, and well defined. No tautology. No vagueness.
+- **Success Criteria Completeness:** All reasonable conditions that could decide if the feature implementation is successful are listed. Question to ask: "If all given success criteria are met, could the implementation still be considered unsuccessful due to some obvious, but unlisted condition?".
+- **Success Criteria Soundness:** Each condition item is implicitly or explicitly required for the feature request, given the provided system description. Question to ask: "If this condition is NOT met, could the implementation still be considered objectively successful?".
+- **Success Criteria Quality:** All success criteria are concrete, measurable, and well defined. No tautology. No vagueness.
 - **Open Question Completeness:** Each identified key decision that requires external input is covered by a specific open question.
 - **Open Question Soundness:** No noted open question can be answered by the provided context. Each open question can only be decided by external information that is currently missing.
 - **Open Question Quality:** All open questions are concrete and well defined. No tautology. A human can understand clearly what additional information or decision needs to be provided.
@@ -87,7 +87,7 @@ The context of the **SUMMARIZER** agent contains the following information:
 
 #### Scratchpad
 
-All agents have shared access to a **scratchpad** - a text file that each agent can read and write to using a dedicated tool. This file is used to keep the current state of the scope, assumptions, key decisions, open questions, clarifications, challenges, etc. For example, if a scope item has been wrongly included and successfully challenged, it should be promptly removed from the scratchpad. Likewise, when a challenge is adressed succesfully, the chalenge is no longer needed in the scratchpad and should also be removed. By the end, the CRITIC should be able to decide if the process is complete, when it is satisfied with the contents of the scratchpad. Each agent who writes to the scratchpad has the responsibility to keep its contents within the prescribed limits.
+All agents have shared access to a **scratchpad** - a text file that each agent can read and write to using a dedicated tool. This file is used to keep the current state of the scope, assumptions, key decisions, open questions, clarifications, challenges, etc. For example, if a scope item has been wrongly included and successfully challenged, it should be promptly removed from the scratchpad. Likewise, when a challenge is addressed successfully, the challenge is no longer needed in the scratchpad and should also be removed. By the end, the CRITIC should be able to decide if the process is complete, when it is satisfied with the contents of the scratchpad. Each agent who writes to the scratchpad has the responsibility to keep its contents within the prescribed limits.
 
 ### Flow
 
@@ -115,12 +115,12 @@ The deliberation engine process flow consists of the following steps:
     - **Scope:** what the feature will and will not include
     - **Assumptions:** what was assumed and whether it was challenged or accepted
     - **Decision Log:** each key decision made by the agents - what was agreed and what was rejected
-    - **Success Criteria:** what conditions would indicate the feature is imlemented successfully
+    - **Success Criteria:** what conditions would indicate the feature is implemented successfully
     - **Open Questions:** what remains unresolved and requires human input
 
 ### Technical Details
 
-- Promts are explicitly separated from code for easier developer access. All prompts are stored in a separate module `prompts/`. No prompts live inside the rest of the codebase.
+- Prompts are explicitly separated from code for easier developer access. All prompts are stored in a separate module `prompts/`. No prompts live inside the rest of the codebase.
 - Feature request and system description text is limited to 10,000 characters and may NOT contain any kind of special formatting like markdown, HTML, XML, etc. Such special formatting will be cleaned before ingestions in the LLM context.
 - Scratchpad size must not exceed 50,000 characters. If an agent tries to make the file longer by writing to it, a hard rule in the system prevents it and asks the agent to reduce the length in order to fit into the limits. The agent has at most 5 consecutive attempts to do that, otherwise its write action will be canceled and the agent will have to explain what it tried to do in the conversation, after failing to write in the scratchpad.
 - Agent responses in the chat can be at most 2,000 tokens.
