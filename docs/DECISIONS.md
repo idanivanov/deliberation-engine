@@ -49,3 +49,8 @@ Changes to the prompts have been applied after iterating on different inputs and
 - Inputs are assumed to be plain text. Markdown, HTML, XML formatting in those fields could lead to unexpected results.
 - Confidence is currently calculated on the whole response. It would be more meaningful to calculate it on an individual proposal/challenge level.
 - All model choices and prompts have been "vibe" tested. We haven't run any quantitative evaluations on different versions in order to know for sure which models and prompts would work better. For future development, we need to prepare a golden dataset for evaluations and run experiments to improve the agents - choose best models, adapt prompts, improve scaffolding.
+
+## If More Time was Available
+
+- I would have implemented some of the more complex approaches discussed as alternatives in this document.
+- I would have implemented an evaluation framework to be able to compare different versions of the solution.
