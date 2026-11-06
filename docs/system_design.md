@@ -26,7 +26,7 @@ All code is contained in a single Python package `deliberation_engine`. The pack
 
 This is a CLI tool. The engine starts with `deliberation-engine start [-s/--system "<plain text description of the target system for the request>"] [-r/--request "<feature request in plain text>"]`. The deliberation process starts immediately if the system description and feature request are provided. Otherwise, the user is first prompted to provide the system description and feature request in plain text when the command is called. Those parameters can also be provided via env variables: `DE_SYSTEM_DESCRIPTION` and `DE_FEATURE_REQUEST` (e.g., loaded from `.env`).
 
-The conversation flow is clearly formatted so the user can clearly see what each agent is saying. Each message has visible metadata (timestamp, agent name, agent-specific color marks surrounding the message to clearly distinguish it from the rest of the conversation). Internal agent steps like tool calls and reasoning are hidden by default, but can be expanded if the user clicks on a summary line of those internal steps (can be collapsed back afterwards, when the user clicks again on them). The thinking process and active work is clearly indicated and animated so the user knows that the process is active.
+The conversation flow is clearly formatted so the user can clearly see what each agent is saying. Each message has visible metadata (timestamp, agent name, agent-specific color marks surrounding the message to clearly distinguish it from the rest of the conversation). Internal agent steps like tool calls and reasoning are hidden by default, but can be expanded if the user clicks on a summary line of those internal steps (can be collapsed back afterwards, when the user clicks again on them). The thinking process and active work is clearly indicated and animated so the user knows that the process is active. Each CRITIC message clearly shows its satisfaction signal (satisfied / not satisfied).
 
 The final result is clearly shown to the user with distinguishable formatting and colors. It states a short summary of the decision document and the path to the produced full decision document. It also states the number of tokens used, total cost, and total processing time (also, each metric broken down by agent).
 
@@ -82,7 +82,12 @@ In a single LLM call, the CRITIC checks the latest proposal against the followin
 - **Decision Log Alignment:** The CRITIC agrees with each key decision - verifying what was agreed and rejected.
 - **Challenge Coverage:** All of the CRITIC's previous challenges have been addressed by the PROPOSER.
 
-The CRITIC returns a structured list of challenges, each referencing the proposal item it targets. It includes only significant challenges. An empty list means the CRITIC is satisfied.
+The CRITIC returns a structured output containing:
+
+- **Challenges:** a list of significant, specific challenges, each referencing the proposal item it targets.
+- **Satisfied:** an explicit boolean signal that the CRITIC is satisfied and ready to conclude, with a short justification.
+
+The output must be consistent: `satisfied` is `true` if and only if the challenge list is empty. This is enforced by a Pydantic AI output validator, which raises `ModelRetry` on inconsistent output.
 
 #### Agent 3: SUMMARIZER
 
@@ -101,16 +106,16 @@ IMPORTANT: The SUMMARIZER does NOT change or omit any item of the PROPOSER's fin
 
 1. Obtain system description and feature request as free text from the user (if not already provided).
 2. The PROPOSER produces the initial proposal.
-3. The CRITIC reviews the latest proposal and returns its challenges.
+3. The CRITIC reviews the latest proposal and returns its challenges and its explicit satisfaction signal.
 4. The PROPOSER replies to the challenges and restates the updated proposal. Steps 3 and 4 repeat until one of the stopping criteria is met:
 
-    - **Minimum 2 Rounds:** The CRITIC must not be satisfied in the first round. This is a hard rule, checked by deterministic logic. If the CRITIC returns no challenges in the first round, it is re-invoked with an instruction emphasizing it must raise at least one challenge. This is retried 5 times. If after the 5th try there are still no challenges, the process stops with an error.
-    - **CRITIC Satisfied:** From the second round onward, if the CRITIC returns no challenges, the discussion is over.
+    - **Minimum 2 Rounds:** The CRITIC must not signal satisfaction in the first round. This is a hard rule, checked by deterministic logic in the CRITIC's output validator. If the CRITIC signals satisfaction in the first round, the validator raises `ModelRetry` with an instruction emphasizing it must raise at least one challenge. This is retried 5 times. If after the 5th try the CRITIC still signals satisfaction, the process stops with an error.
+    - **CRITIC Satisfied:** From the second round onward, the discussion is over as soon as the CRITIC explicitly signals satisfaction.
     - **Max Turns:** The conversation does not exceed **30** PROPOSER-CRITIC conversation turns. If the limit is reached, the conversation finishes with a clear WARNING "Limit of 30 Conversation Turns Reached". The SUMMARIZER is still invoked and the final decision file is produced, but it should include a warning that the deliberation process finished after reaching the maximum number of turns. This is a hard condition, enforced by deterministic logic.
 
 5. Once the conversation finishes, the SUMMARIZER produces the **decision document** as equivalent Markdown and JSON files. The final document contains the following sections:
 
-    - **Overview:** short executive summary of the deliberation conclusion
+    - **Overview:** short executive summary of the deliberation conclusion, including how it ended (the CRITIC's satisfaction justification or the max turns warning)
     - **Scope:** what the feature will and will not include
     - **Assumptions:** what was assumed and whether it was challenged or accepted
     - **Decision Log:** each key decision made by the agents - what was agreed and what was rejected
